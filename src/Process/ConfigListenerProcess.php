@@ -53,7 +53,18 @@ class ConfigListenerProcess extends AbstractProcess
     protected function _get(string $dataId, string $group, string $tenant, string $path)
     {
         $res = $this->client->config->get($dataId, $group, $tenant);
-        if (file_put_contents($path, $res, LOCK_EX)) {
+        if (false === $res) {
+            $this->logger()->error(
+                "Nacos listener failed: [1] {$this->client->config->getMessage()}.",
+                ['dataId' => $dataId, 'trace' => []]
+            );
+
+            return;
+        }
+        // Nacos may notify repeatedly for an unchanged configuration. Avoid
+        // touching the cache file because its mtime can trigger an app reload.
+        if ((!is_file($path) || file_get_contents($path) !== $res)
+            && file_put_contents($path, $res, LOCK_EX) !== false) {
             reload($path);
         }
     }

@@ -61,7 +61,10 @@ class AsyncConfigListenerProcess extends AbstractProcess
 
             return;
         }
-        if (file_put_contents($path, $res, LOCK_EX)) {
+        // Nacos may notify repeatedly for an unchanged configuration. Avoid
+        // touching the cache file because its mtime can trigger an app reload.
+        if ((!is_file($path) || file_get_contents($path) !== $res)
+            && file_put_contents($path, $res, LOCK_EX) !== false) {
             reload($path);
         }
     }
